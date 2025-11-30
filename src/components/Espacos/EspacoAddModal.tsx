@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createEspaco } from "../../services/espaco";
+import type { Bloco } from "../../services/bloco";
+import { getBlocos } from "../../services/bloco";
+
 
 type Props = {
   open: boolean;
@@ -10,24 +13,30 @@ type Props = {
 const EspacoAddModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
-  const [bloco, setBloco] = useState("");
+  const [bloco, setBloco] = useState<number | "">("");
+  const [blocos, setBlocos] = useState<Bloco[]>([]);
+
+  // Carregar blocos ao abrir o modal
+  useEffect(() => {
+    if (open) {
+      getBlocos().then(setBlocos).catch(console.error);
+    }
+  }, [open]);
 
   if (!open) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
       const payload = {
         nome,
         tipo,
-        bloco: bloco
+        bloco, // agora é ID numérico
       };
 
       await createEspaco(payload);
       onCreated?.();
 
-      // reset
       setNome("");
       setTipo("");
       setBloco("");
@@ -41,80 +50,68 @@ const EspacoAddModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white w-full max-w-lg p-6 rounded-xl shadow-xl relative">
+        <h2 className="text-2xl font-bold mb-4">Novo Espaço Físico</h2>
 
-        <h2 className="text-2xl font-bold text-[#2E3A59] mb-4">
-          Novo Espaço Físico
-        </h2>
-
-        <form className="space-y-4" onSubmit={handleSubmit}>
-
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Nome */}
           <div>
-            <label className="block font-medium text-sm mb-1">Nome *</label>
+            <label>Nome *</label>
             <input
-              type="text"
               required
               value={nome}
               onChange={(e) => setNome(e.target.value)}
-              placeholder="Ex: Sala 101"
-              className="w-full border rounded-lg p-2 focus:outline-none focus:ring focus:ring-blue-200"
+              className="w-full border rounded-lg p-2"
             />
           </div>
 
-          {/* Bloco */}
+          {/* Bloco como SELECT */}
           <div>
-            <label className="block font-medium text-sm mb-1">Bloco</label>
-            <input
-              type="text"
+            <label>Bloco *</label>
+            <select
+              required
+              className="w-full border rounded-lg p-2"
               value={bloco}
-              onChange={(e) => setBloco(e.target.value)}
-              placeholder="Ex: Bloco A"
-              className="w-full border rounded-lg p-2 focus:outline-none focus:ring focus:ring-blue-200"
-            />
+              onChange={(e) => setBloco(Number(e.target.value))}
+            >
+              <option value="">Selecione...</option>
+              {blocos.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.nome} — {b.predio_nome}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Tipo */}
           <div>
-            <label className="block font-medium text-sm mb-1">Tipo *</label>
+            <label>Tipo *</label>
             <select
               required
+              className="w-full border rounded-lg p-2"
               value={tipo}
               onChange={(e) => setTipo(e.target.value)}
-              className="w-full border rounded-lg p-2 focus:outline-none focus:ring focus:ring-blue-200"
             >
               <option value="">Selecione...</option>
               <option value="Sala de Aula">Sala de Aula</option>
               <option value="Laboratório">Laboratório</option>
               <option value="Auditório">Auditório</option>
-              <option value="Sala de Professor / Projeto">
-                Sala de Professor / Projeto
+              <option value="Sala Professor / Projeto">
+                Sala Professor / Projeto
               </option>
-              <option value="Ginásio">Ginásio / Quadra</option>
-              <option value="Sala Administrativa">
-                Sala Administrativa / Reunião
-              </option>
+              <option value="Ginásio">Ginásio</option>
+              <option value="Sala Administrativa">Administrativa</option>
               <option value="Área Externa">Área Externa</option>
             </select>
           </div>
 
-          {/* Ações */}
           <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition cursor-pointer"
-            >
+            <button type="button" onClick={onClose} className="btn-cancel">
               Cancelar
             </button>
-
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition cursor-pointer"
-            >
+            <button type="submit" className="btn-primary">
               Salvar
             </button>
           </div>
-
         </form>
       </div>
     </div>

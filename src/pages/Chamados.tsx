@@ -55,7 +55,7 @@ const Chamados: React.FC = () => {
 
     return chamados.filter((chamado) => {
       const matchesSearch =
-        chamado.id.toString().toLowerCase().includes(term) ||
+        String(chamado.id).toLowerCase().includes(term)
         chamado.descricao.toLowerCase().includes(term);
 
         return matchesSearch

@@ -11,28 +11,28 @@ const ChamadosForm: React.FC<{ onCreated?: () => void }> = ({ onCreated }) => {
   const [descricao, setDescricao] = useState("");
   const [anexos, setAnexos] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
-  const [inputKey, setInputKey] = useState(0); // 🔑 força recriação do input
+  const [inputKey, setInputKey] = useState(0);
 
   const [itens, setItens] = useState<Item[]>([]);
-  
-    useEffect(() => {
-      async function fetchData() {
-        try {
-          const data = await getItens();
-          setItens(data);
-        } catch (error) {
-          console.error("Erro ao carregar itens:", error);
-        }
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const data = await getItens();
+        setItens(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Erro ao carregar itens:", error);
+        setItens([]);
       }
-      fetchData();
-    }, []);
+    }
+    fetchData();
+  }, []);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
     setAnexos((prev) => [...prev, ...Array.from(files)]);
-    // força recriação do input para aceitar o mesmo arquivo novamente
     setInputKey((prev) => prev + 1);
   };
 
@@ -59,7 +59,7 @@ const ChamadosForm: React.FC<{ onCreated?: () => void }> = ({ onCreated }) => {
 
   const removeFile = (index: number) => {
     setAnexos((prev) => prev.filter((_, i) => i !== index));
-    setInputKey((prev) => prev + 1); // recria input para permitir novo upload
+    setInputKey((prev) => prev + 1);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,12 +68,13 @@ const ChamadosForm: React.FC<{ onCreated?: () => void }> = ({ onCreated }) => {
       const payload = {
         tipo: tipoChamado,
         descricao,
-        patrimonio: Number(itemPrimordial),
+        patrimonio: Number(itemPrimordial) || 0,
+        titulo: titulo || "",
       };
 
-      console.log(payload)
+      console.log(payload);
 
-      const response = await createChamado(payload);
+      await createChamado(payload);
 
       if (onCreated) onCreated();
 
@@ -83,9 +84,7 @@ const ChamadosForm: React.FC<{ onCreated?: () => void }> = ({ onCreated }) => {
       setTitulo("");
       setDescricao("");
       setAnexos([]);
-
       if (inputRef.current) inputRef.current.value = "";
-
     } catch (error) {
       console.error("Erro ao enviar chamado:", error);
     }
@@ -124,11 +123,11 @@ const ChamadosForm: React.FC<{ onCreated?: () => void }> = ({ onCreated }) => {
           required
         >
           <option value="">Selecione...</option>
-          {itens.map((item) =>{
-            return (
-              <option value={item.id}>{item.nome}</option>
-            )
-          })}
+          {(itens ?? []).map((item) => (
+            <option key={item.id ?? Math.random()} value={item.id ?? ""}>
+              {item.nome ?? "Sem nome"}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -161,68 +160,6 @@ const ChamadosForm: React.FC<{ onCreated?: () => void }> = ({ onCreated }) => {
           required
         />
       </div>
-
-      {/* Anexos */}
-      {/* <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">
-          Anexos
-        </label>
-        <div
-          onDragEnter={handleDrag}
-          onDragOver={handleDrag}
-          onDragLeave={handleDrag}
-          onDrop={handleDrop}
-          className={`relative flex flex-col items-center justify-center w-full h-32 rounded-lg transition cursor-pointer ${
-            dragActive
-              ? "border-indigo-500 bg-indigo-50 border-2 border-dashed"
-              : "border-gray-300 border-2 border-dashed bg-white"
-          } p-4`}
-        >
-          <input
-            key={inputKey} // 🔑 força recriação
-            ref={inputRef}
-            id="file-upload"
-            type="file"
-            multiple
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            onChange={handleFileChange}
-          />
-
-          <Upload size={28} className="text-indigo-500 mb-2 pointer-events-none" />
-          <p className="text-sm text-gray-700 text-center pointer-events-none">
-            <span className="font-semibold text-indigo-600">Clique</span> ou
-            arraste arquivos aqui para anexar
-          </p>
-          <p className="text-xs text-gray-400 text-center pointer-events-none">
-            Suporta múltiplos arquivos
-          </p>
-        </div>
-
-        {anexos.length > 0 && (
-          <ul className="mt-3 space-y-2">
-            {anexos.map((file, idx) => (
-              <li
-                key={`${file.name}-${idx}`}
-                className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-md px-3 py-2"
-              >
-                <div className="text-sm text-gray-700">
-                  <span className="font-medium">{file.name}</span>
-                  <span className="text-xs text-gray-500 ml-2">
-                    {(file.size / 1024).toFixed(1)} KB
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeFile(idx)}
-                  className="text-sm text-red-600 hover:underline"
-                >
-                  Remover
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div> */}
 
       {/* Botão Enviar */}
       <div className="pt-4">

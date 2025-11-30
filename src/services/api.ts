@@ -8,7 +8,19 @@ const api = axios.create({
   },
 });
 
-// Intercepta requisições e injeta o token
+// 🔥 INTERCEPTOR DE REQUISIÇÃO — injeta o token em TODAS requisições
+api.interceptors.request.use(
+  (config) => {
+    const access = localStorage.getItem("access");
+    if (access) {
+      config.headers.Authorization = `Bearer ${access}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// 🔥 INTERCEPTOR DE RESPOSTA — tenta refresh quando der 401
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -17,7 +29,7 @@ api.interceptors.response.use(
     // só tenta refresh se for erro 401 e ainda não tentou
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       const refresh = localStorage.getItem("refresh");
       if (!refresh) {
         logout();
@@ -25,15 +37,18 @@ api.interceptors.response.use(
       }
 
       try {
-        const refreshResponse = await api.post("users/token/refresh/", { refresh });
+        const refreshResponse = await api.post("users/token/refresh/", {
+          refresh,
+        });
 
         localStorage.setItem("access", refreshResponse.data.access);
 
-        // injeta o novo token na requisição que falhou
-        originalRequest.headers.Authorization = `Bearer ${refreshResponse.data.access}`;
-        // repete a requisição original
-        return api(originalRequest);
+        // injeta novo token
+        originalRequest.headers.Authorization =
+          `Bearer ${refreshResponse.data.access}`;
 
+        // refaz a requisição original
+        return api(originalRequest);
       } catch (e) {
         logout();
         return Promise.reject(e);

@@ -25,7 +25,7 @@ export interface CreateItemPayload {
 export async function getItens() {
   try {
     const response = await api.get("patrimonios/");
-    return response.data;
+    return response.data.results; // <<< AQUI
   } catch (error) {
     console.error("Erro ao buscar patrimonios:", error);
     throw error;

@@ -7,7 +7,9 @@ interface Espaco {
   id: number;
   nome: string;
   tipo: string;
-  bloco?: string;
+  bloco: number;        // ID
+  bloco_nome: string;   // nome do bloco
+  predio_nome: string;  // nome do prédio
 }
 
 interface EspacoFiltersProps {
@@ -33,24 +35,27 @@ const EspacoFilters: React.FC<EspacoFiltersProps> = ({
   filters,
   setFilters,
 }) => {
+
+  // LISTA DE TIPOS ÚNICOS
   const tipos = useMemo(
-    () => Array.from(new Set(data.map((i) => i.tipo))),
+    () => Array.from(new Set(data.map((i) => i.tipo).filter(Boolean))),
     [data]
   );
 
+  // LISTA DE BLOCOS (USANDO BLOCO_NOME)
   const blocos = useMemo(
     () =>
       Array.from(
         new Set(
           data
-            .filter((i) => i.bloco && i.bloco.trim() !== "")
-            .map((i) => i.bloco as string)
+            .map((i) => i.bloco_nome)
+            .filter((v) => v && v.trim() !== "")
         )
       ),
     [data]
   );
 
-  const updateFilter = (key: keyof typeof filters, values: any) => {
+  const updateFilter = (key: keyof typeof filters, values: string[]) => {
     setFilters((prev) => ({ ...prev, [key]: values }));
   };
 
@@ -61,11 +66,14 @@ const EspacoFilters: React.FC<EspacoFiltersProps> = ({
 
   return (
     <div className="w-full flex flex-nowrap items-center gap-4 mb-6 relative">
+
+      {/* Ícone */}
       <Search
         size={18}
         className="absolute left-3 text-gray-500 pointer-events-none"
       />
 
+      {/* Barra de pesquisa */}
       <SearchBar
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -73,6 +81,7 @@ const EspacoFilters: React.FC<EspacoFiltersProps> = ({
         placeholder="Buscar por nome..."
       />
 
+      {/* Filtro — Tipo */}
       <MultiFilterDropdown
         label="Tipo"
         options={tipos.map((t) => ({ value: t, label: t }))}
@@ -80,6 +89,7 @@ const EspacoFilters: React.FC<EspacoFiltersProps> = ({
         onChange={(v) => updateFilter("tipos", v)}
       />
 
+      {/* Filtro — Bloco */}
       <MultiFilterDropdown
         label="Bloco"
         options={blocos.map((b) => ({ value: b, label: b }))}
@@ -87,6 +97,7 @@ const EspacoFilters: React.FC<EspacoFiltersProps> = ({
         onChange={(v) => updateFilter("blocos", v)}
       />
 
+      {/* Botão limpar */}
       <button
         onClick={clearFilters}
         className="cursor-pointer bg-gray-200 select-none border border-gray-300 rounded-lg px-4 py-2 text-gray-700 hover:border-gray-400 min-w-[150px] hover:bg-gray-300"

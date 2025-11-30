@@ -34,13 +34,17 @@ const EspacosTable: React.FC<EspacosTableProps> = ({
   const pages = useMemo(() => {
     const delta = 2;
     const result: (number | string)[] = [];
-    let l: number | undefined;
+    let last: number | undefined;
 
     for (let i = 1; i <= totalPages; i++) {
-      if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
-        if (l && i - l > 1) result.push("...");
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - delta && i <= currentPage + delta)
+      ) {
+        if (last && i - last > 1) result.push("...");
         result.push(i);
-        l = i;
+        last = i;
       }
     }
     return result;
@@ -64,6 +68,7 @@ const EspacosTable: React.FC<EspacosTableProps> = ({
               <th className="py-3 px-4 font-semibold">Nome</th>
               <th className="py-3 px-4 font-semibold">Tipo</th>
               <th className="py-3 px-4 font-semibold">Bloco</th>
+              <th className="py-3 px-4 font-semibold">Prédio</th>
               <th className="py-3 px-4 font-semibold text-center">Ações</th>
             </tr>
           </thead>
@@ -76,8 +81,19 @@ const EspacosTable: React.FC<EspacosTableProps> = ({
                 <td className="py-3 px-4">{espaco.id}</td>
                 <td className="py-3 px-4">{espaco.nome}</td>
                 <td className="py-3 px-4">{espaco.tipo}</td>
-                <td className="py-3 px-4">{espaco.bloco || "-"}</td>
+
+                {/* BLOCO: exibe bloco_nome ao invés do ID */}
+                <td className="py-3 px-4">
+                  {espaco.bloco_nome ? espaco.bloco_nome : "-"}
+                </td>
+
+                {/* PRÉDIO */}
+                <td className="py-3 px-4">
+                  {espaco.predio_nome ? espaco.predio_nome : "-"}
+                </td>
+
                 <td className="py-3 px-4 flex justify-center gap-2">
+                  {/* Visualizar */}
                   <button
                     onClick={() => onView?.(espaco)}
                     className="p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer"
@@ -85,6 +101,8 @@ const EspacosTable: React.FC<EspacosTableProps> = ({
                   >
                     <Eye size={16} className="text-gray-700" />
                   </button>
+
+                  {/* Editar */}
                   <button
                     onClick={() => onEdit?.(espaco)}
                     className="p-1 rounded hover:bg-blue-100 transition-colors cursor-pointer"
@@ -92,6 +110,8 @@ const EspacosTable: React.FC<EspacosTableProps> = ({
                   >
                     <Edit size={16} className="text-blue-500" />
                   </button>
+
+                  {/* Excluir */}
                   <button
                     onClick={() => onDelete?.(espaco)}
                     className="p-1 rounded hover:bg-red-100 transition-colors cursor-pointer"
