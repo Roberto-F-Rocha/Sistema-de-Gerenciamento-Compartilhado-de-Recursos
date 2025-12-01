@@ -26,7 +26,7 @@ const LocalizacaoEditModal: React.FC<Props> = ({ open, onClose, localizacao, onU
 
     async function fetchPredios() {
       try {
-        const response = await api.get("/api/predios/");
+        const response = await api.get("localizacoes/predios/");
         setPredios(response.data);
       } catch (err) {
         console.error("Erro ao carregar prédios:", err);

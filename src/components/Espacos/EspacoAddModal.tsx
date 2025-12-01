@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { getPredios } from "../../services/espaco";
-import type { Predio, Bloco, Sala } from "../../services/espaco";
+import type { Predio, Bloco } from "../../services/espaco";
+import api from "../../services/api";
+
 type Props = {
   open: boolean;
   onClose: () => void;
-  onSelected?: (predioId: number, blocoId: number, salaId: number) => void;
+  onSelected?: (predioId?: number, blocoId?: number, salaId?: number) => void;
 };
 
 const LocalizacaoSelectModal: React.FC<Props> = ({ open, onClose, onSelected }) => {
   const [predios, setPredios] = useState<Predio[]>([]);
-  const [predioSelecionado, setPredioSelecionado] = useState<number | "">("");
-  const [blocoSelecionado, setBlocoSelecionado] = useState<number | "">("");
-  const [salaSelecionada, setSalaSelecionada] = useState<number | "">("");
+  const [predioNome, setPredioNome] = useState("");
+  const [blocos, setBlocos] = useState<Bloco[]>([]);
+  const [blocoNome, setBlocoNome] = useState("");
+  const [salaNome, setSalaNome] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -19,96 +22,106 @@ const LocalizacaoSelectModal: React.FC<Props> = ({ open, onClose, onSelected }) 
     }
   }, [open]);
 
+  useEffect(() => {
+    const predioSelecionado = predios.find((p) => p.nome === predioNome);
+    setBlocos(predioSelecionado?.blocos || []);
+    setBlocoNome("");
+  }, [predioNome, predios]);
+
   if (!open) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (predioSelecionado && blocoSelecionado && salaSelecionada) {
-      onSelected?.(
-        Number(predioSelecionado),
-        Number(blocoSelecionado),
-        Number(salaSelecionada)
-      );
-      setPredioSelecionado("");
-      setBlocoSelecionado("");
-      setSalaSelecionada("");
-      onClose();
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    let predioId: number | undefined;
+    if (predioNome) {
+      const resPredio = await api.post("localizacoes/predios/", { nome: predioNome });
+      predioId = resPredio.data.id;
     }
-  };
 
-  const blocosDisponiveis: Bloco[] =
-    predios.find((p) => p.id === predioSelecionado)?.blocos || [];
+    if (!predioId) throw new Error("Prédio não foi criado");
 
-  const salasDisponiveis: Sala[] =
-    blocosDisponiveis.find((b) => b.id === blocoSelecionado)?.salas || [];
+    let blocoId: number | undefined;
+    if (blocoNome) {
+      const resBloco = await api.post("localizacoes/blocos/", {
+        nome: blocoNome,
+        predio: predioId // 🔑 obrigatório
+      });
+      blocoId = resBloco.data.id;
+    }
+
+    let salaId: number | undefined;
+    if (salaNome) {
+      if (!blocoId) throw new Error("Bloco não foi criado para a sala");
+      const resSala = await api.post("localizacoes/salas/", {
+        nome: salaNome,
+        predio: predioId,
+        bloco: blocoId
+      });
+      salaId = resSala.data.id;
+    }
+
+    onSelected?.(predioId, blocoId, salaId);
+
+    setPredioNome("");
+    setBlocoNome("");
+    setSalaNome("");
+    onClose();
+
+  } catch (err: any) {
+    console.error("Erro ao salvar espaço físico:", err.response?.data || err);
+    alert("Erro ao salvar. Confira os campos e tente novamente.");
+  }
+};
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white w-full max-w-lg p-6 rounded-xl shadow-xl relative">
-        <h2 className="text-2xl font-bold mb-4">Selecionar Localização</h2>
-
+        <h2 className="text-2xl font-bold mb-4">Adicionar Espaço Físico</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Prédio */}
           <div>
-            <label>Prédio *</label>
-            <select
-              required
+            <label className="block font-medium">Prédio</label>
+            <input
+              list="predios"
               className="w-full border rounded-lg p-2"
-              value={predioSelecionado}
-              onChange={(e) => {
-                setPredioSelecionado(Number(e.target.value));
-                setBlocoSelecionado("");
-                setSalaSelecionada("");
-              }}
-            >
-              <option value="">Selecione...</option>
+              value={predioNome}
+              onChange={(e) => setPredioNome(e.target.value)}
+              placeholder="Escolha ou digite um prédio"
+            />
+            <datalist id="predios">
               {predios.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
+                <option key={p.id} value={p.nome} />
               ))}
-            </select>
+            </datalist>
           </div>
 
-          {/* Bloco */}
           <div>
-            <label>Bloco *</label>
-            <select
-              required
+            <label className="block font-medium">Bloco</label>
+            <input
+              list="blocos"
               className="w-full border rounded-lg p-2"
-              value={blocoSelecionado}
-              onChange={(e) => {
-                setBlocoSelecionado(Number(e.target.value));
-                setSalaSelecionada("");
-              }}
-              disabled={!predioSelecionado}
-            >
-              <option value="">Selecione...</option>
-              {blocosDisponiveis.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.nome}
-                </option>
+              value={blocoNome}
+              onChange={(e) => setBlocoNome(e.target.value)}
+              placeholder="Escolha ou digite um bloco"
+              disabled={!predioNome}
+            />
+            <datalist id="blocos">
+              {blocos.map((b) => (
+                <option key={b.id} value={b.nome} />
               ))}
-            </select>
+            </datalist>
           </div>
 
-          {/* Sala */}
           <div>
-            <label>Sala *</label>
-            <select
-              required
+            <label className="block font-medium">Sala</label>
+            <input
+              type="text"
               className="w-full border rounded-lg p-2"
-              value={salaSelecionada}
-              onChange={(e) => setSalaSelecionada(Number(e.target.value))}
-              disabled={!blocoSelecionado}
-            >
-              <option value="">Selecione...</option>
-              {salasDisponiveis.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nome}
-                </option>
-              ))}
-            </select>
+              value={salaNome}
+              onChange={(e) => setSalaNome(e.target.value)}
+              placeholder="Digite o nome da sala (nova)"
+              disabled={!predioNome || !blocoNome}
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4">

@@ -33,7 +33,7 @@ const EspacoViewModal: React.FC<Props> = ({ open, onClose, data }) => {
 
     setLoading(true);
     api
-      .get(`/api/espacos/${data.id}/`)
+      .get(`localizacoes/espacos/${data.id}/`)
       .then((res) => setEspaco(res.data))
       .catch((err) => {
         console.error("Erro ao buscar espaço:", err);
