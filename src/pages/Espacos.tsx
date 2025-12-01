@@ -8,13 +8,13 @@ import EspacoDeleteModal from "../components/Espacos/EspacoDeleteModal";
 import EspacoFilters from "../components/Espacos/EspacoFilters";
 import EspacoTable from "../components/Espacos/EspacoTable";
 
-import { getEspacos, type Espaco } from "../services/espaco";
+import { getPredios, type Espaco, type Predio } from "../services/espaco";
 
 const Espacos: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     tipos: [] as string[],
-    blocos: [] as string[]
+    blocos: [] as string[],
   });
 
   const [espacos, setEspacos] = useState<Espaco[]>([]);
@@ -24,40 +24,61 @@ const Espacos: React.FC = () => {
   // Fetch inicial
   // --------------------------
   const fetchEspacos = async () => {
-    const data = await getEspacos();
-    setEspacos(data);
+    setLoading(true);
+    try {
+      const predios: Predio[] = await getPredios();
+
+      // Transformar prédios → blocos → salas em Espaco[]
+      const dados: Espaco[] = [];
+      predios.forEach((p) => {
+        p.blocos?.forEach((b) => {
+          b.salas?.forEach((s) => {
+            dados.push({
+              id: s.id,
+              predio: p,
+              bloco: b,
+              sala: s,
+              nome: `${p.nome} > ${b.nome} > ${s.nome}`,
+              tipo: s.tipo ?? "", // se houver tipo definido no backend
+            });
+          });
+        });
+      });
+
+      setEspacos(dados);
+    } catch (err) {
+      console.error("Erro ao carregar espaços:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchEspacos().finally(() => setLoading(false));
+    fetchEspacos();
   }, []);
 
   // --------------------------
-  // Modal States
+  // Modais
   // --------------------------
   const [openAddModal, setOpenAddModal] = useState(false);
-
   const [viewOpen, setViewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [selected, setSelected] = useState<Espaco | null>(null);
 
-  // --------------------------
-  // Handlers (iguais manutenção)
-  // --------------------------
-  const handleView = (registro: Espaco) => {
-    setSelected(registro);
+  const handleView = (espaco: Espaco) => {
+    setSelected(espaco);
     setViewOpen(true);
   };
 
-  const handleEdit = (registro: Espaco) => {
-    setSelected(registro);
+  const handleEdit = (espaco: Espaco) => {
+    setSelected(espaco);
     setEditOpen(true);
   };
 
-  const handleDelete = (registro: Espaco) => {
-    setSelected(registro);
+  const handleDelete = (espaco: Espaco) => {
+    setSelected(espaco);
     setDeleteOpen(true);
   };
 
@@ -74,35 +95,25 @@ const Espacos: React.FC = () => {
   };
 
   // --------------------------
-  // Filtragem
+  // Filtragem e pesquisa
   // --------------------------
   const filteredEspacos = useMemo(() => {
     const term = searchTerm.toLowerCase();
-
     return espacos.filter((e) => {
       const matchesSearch = e.nome.toLowerCase().includes(term);
-
-      const matchesTipo =
-        filters.tipos.length === 0 || filters.tipos.includes(e.tipo);
-
-      const matchesBloco =
-        filters.blocos.length === 0 ||
-        (e.bloco && filters.blocos.includes(e.bloco));
-
+      const matchesTipo = filters.tipos.length === 0 || filters.tipos.includes(e.tipo || "");
+      const matchesBloco = filters.blocos.length === 0 || (e.bloco && filters.blocos.includes(e.bloco.nome));
       return matchesSearch && matchesTipo && matchesBloco;
     });
   }, [searchTerm, filters, espacos]);
 
   // --------------------------
-  // Loading state
+  // Render
   // --------------------------
   if (loading) {
     return (
       <section className="pt-4 px-4">
-        <h2 className="text-3xl font-bold mb-6 text-[#2E3A59]">
-          Gerenciamento de Espaços Físicos
-        </h2>
-
+        <h2 className="text-3xl font-bold mb-6 text-[#2E3A59]">Gerenciamento de Espaços Físicos</h2>
         <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 text-center">
           <p>Carregando dados...</p>
         </div>
@@ -110,14 +121,9 @@ const Espacos: React.FC = () => {
     );
   }
 
-  // --------------------------
-  // Render
-  // --------------------------
   return (
     <section className="pt-4 px-4">
-      <h2 className="text-3xl font-bold mb-6 text-[#2E3A59]">
-        Gerenciamento de Espaços Físicos
-      </h2>
+      <h2 className="text-3xl font-bold mb-6 text-[#2E3A59]">Gerenciamento de Espaços Físicos</h2>
 
       <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
 
@@ -130,7 +136,7 @@ const Espacos: React.FC = () => {
           setFilters={setFilters}
         />
 
-        {/* Botão adicionar */}
+        {/* Botão Adicionar */}
         <div className="mt-4 mb-4">
           <button
             onClick={() => setOpenAddModal(true)}
@@ -149,35 +155,14 @@ const Espacos: React.FC = () => {
         />
       </div>
 
-      {/* ADD */}
-      <EspacoAddModal
-        open={openAddModal}
-        onClose={() => setOpenAddModal(false)}
-        onCreated={fetchEspacos}
-      />
+      {/* Modais */}
+      <EspacoAddModal open={openAddModal} onClose={() => setOpenAddModal(false)} onCreated={fetchEspacos} />
 
-      {/* VIEW */}
-      <EspacoViewModal
-        open={viewOpen}
-        data={selected}
-        onClose={() => setViewOpen(false)}
-      />
+      <EspacoViewModal open={viewOpen} data={selected} onClose={() => setViewOpen(false)} />
 
-      {/* EDIT */}
-      <EspacoEditModal
-        open={editOpen}
-        espaco={selected}
-        onClose={() => setEditOpen(false)}
-        onUpdated={handleUpdated}
-      />
+      <EspacoEditModal open={editOpen} espaco={selected} onClose={() => setEditOpen(false)} onUpdated={handleUpdated} />
 
-      {/* DELETE */}
-      <EspacoDeleteModal
-        open={deleteOpen}
-        espaco={selected}
-        onClose={() => setDeleteOpen(false)}
-        onDeleted={handleDeleted}
-      />
+      <EspacoDeleteModal open={deleteOpen} espaco={selected} onClose={() => setDeleteOpen(false)} onDeleted={handleDeleted} />
     </section>
   );
 };

@@ -1,39 +1,52 @@
 import { useState } from "react";
-import { deleteEspaco } from "../../services/espaco";
-import type { Espaco } from "../../services/espaco";
+import type { Predio, Bloco, Sala } from "../../services/espaco";
 
-interface EspacoDeleteModalProps {
-  open: boolean;
-  onClose: () => void;
-  espaco: Espaco | null;
-  onDeleted?: () => void;
+export interface Localizacao {
+  id: number;
+  predio?: Predio;
+  bloco?: Bloco;
+  sala?: Sala;
 }
 
-export default function EspacoDeleteModal({
+interface LocalizacaoDeleteModalProps {
+  open: boolean;
+  onClose: () => void;
+  localizacao: Localizacao | null;
+  onConfirmed?: () => void;
+}
+
+export default function LocalizacaoDeleteModal({
   open,
   onClose,
-  espaco,
-  onDeleted,
-}: EspacoDeleteModalProps) {
+  localizacao,
+  onConfirmed,
+}: LocalizacaoDeleteModalProps) {
   const [loading, setLoading] = useState(false);
 
-  if (!open || !espaco) return null;
+  if (!open || !localizacao) return null;
 
-  const handleDelete = async () => {
-    if (loading) return; // evita clique duplo
+  const handleConfirm = async () => {
+    if (loading) return;
     setLoading(true);
 
     try {
-      await deleteEspaco(espaco.id);
-
-      onDeleted?.();
+      // Aqui você pode chamar uma função de remoção real, se necessário
+      onConfirmed?.();
       onClose();
     } catch (err) {
-      console.error("Erro ao excluir espaço:", err);
+      console.error("Erro ao confirmar ação:", err);
     } finally {
       setLoading(false);
     }
   };
+
+  const displayName = [
+    localizacao.predio?.nome,
+    localizacao.bloco?.nome,
+    localizacao.sala?.nome,
+  ]
+    .filter(Boolean)
+    .join(" - ");
 
   return (
     <div
@@ -43,12 +56,12 @@ export default function EspacoDeleteModal({
     >
       <div className="bg-white p-6 w-[400px] rounded-xl shadow-xl">
         <h2 className="text-lg font-semibold text-red-600 mb-4">
-          Confirmar Exclusão
+          Confirmar Ação
         </h2>
 
         <p className="mb-6">
-          Tem certeza de que deseja excluir o espaço{" "}
-          <strong>{espaco.nome}</strong>?
+          Tem certeza de que deseja confirmar a ação para{" "}
+          <strong>{displayName}</strong>?
         </p>
 
         <div className="flex justify-end gap-2">
@@ -63,7 +76,7 @@ export default function EspacoDeleteModal({
 
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={handleConfirm}
             className={`px-4 py-2 text-white rounded cursor-pointer ${
               loading
                 ? "bg-red-400 cursor-not-allowed"
@@ -71,7 +84,7 @@ export default function EspacoDeleteModal({
             }`}
             disabled={loading}
           >
-            {loading ? "Deletando..." : "Deletar"}
+            {loading ? "Confirmando..." : "Confirmar"}
           </button>
         </div>
       </div>

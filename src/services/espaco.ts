@@ -1,48 +1,58 @@
+// src/services/espaco.ts
 import api from "./api";
 
-export interface Espaco {
+// Tipos
+export interface Sala {
   id: number;
   nome: string;
-  bloco: string;
-  tipo: string;
+  bloco?: { id: number; nome: string };
+  predio?: { id: number; nome: string };
 }
 
-export async function getEspacos() {
-  try {
-    const response = await api.get("localizacoes/");
-    return response.data;
-  } catch (error) {
-    console.error("Erro ao buscar espaços físicos:", error);
-    throw error;
-  }
+export interface Bloco {
+  id: number;
+  nome: string;
+  salas?: Sala[];
 }
 
-export async function createEspaco(payload: Omit<Espaco, "id">) {
-  try {
-    const response = await api.post("localizacoes/", payload);
-    return response.data;
-  } catch (error) {
-    console.error("Erro ao criar espaço físico:", error);
-    throw error;
-  }
+export interface Predio {
+  id: number;
+  nome: string;
+  blocos?: Bloco[];
 }
 
-export async function updateEspaco(id: number, payload: Omit<Espaco, "id">) {
-  try {
-    const response = await api.patch(`localizacoes/${id}/`, payload);
-    return response.data;
-  } catch (error) {
-    console.error("Erro ao atualizar espaço físico:", error);
-    throw error;
-  }
+// Buscar todos os prédios com blocos e salas
+export async function getPredios(): Promise<Predio[]> {
+  const response = await api.get("/localizacoes/predios/");
+  const predios: Predio[] = response.data;
+
+  predios.sort((a, b) => a.nome.localeCompare(b.nome));
+  predios.forEach(predio => {
+    if (predio.blocos) {
+      predio.blocos.sort((a, b) => a.nome.localeCompare(b.nome));
+      predio.blocos.forEach(bloco => {
+        if (bloco.salas) {
+          bloco.salas.sort((a, b) => a.nome.localeCompare(b.nome));
+        }
+      });
+    }
+  });
+
+  return predios;
 }
 
-export async function deleteEspaco(id: number) {
-  try {
-    const response = await api.delete(`localizacoes/${id}/`);
-    return response.data;
-  } catch (error) {
-    console.error("Erro ao deletar espaço físico:", error);
-    throw error;
-  }
+// Buscar todos os blocos (opcional)
+export async function getBlocos(): Promise<Bloco[]> {
+  const response = await api.get("/localizacoes/blocos/");
+  const blocos: Bloco[] = response.data;
+  blocos.sort((a, b) => a.nome.localeCompare(b.nome));
+  return blocos;
+}
+
+// Buscar todas as salas (opcional)
+export async function getSalas(): Promise<Sala[]> {
+  const response = await api.get("/localizacoes/salas/");
+  const salas: Sala[] = response.data;
+  salas.sort((a, b) => a.nome.localeCompare(b.nome));
+  return salas;
 }

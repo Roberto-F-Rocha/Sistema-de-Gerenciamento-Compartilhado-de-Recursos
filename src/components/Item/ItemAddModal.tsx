@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from "react";
-import type { Espaco } from "../../services/espaco";
-import { getEspacos } from "../../services/espaco";
+import api from "../../services/api"; // seu axios configurado
 import { useAuth } from "../Auth/AuthContext";
+
+export interface Sala {
+  id: number;
+  nome: string;
+  bloco: { id: number; nome: string; predio: { id: number; nome: string } };
+}
 
 export interface ItemFormValues {
   nome: string;
   descricao: string;
   numero_tombo: string;
-  localizacao: string;
+  sala_id: number;
   status: string;
   data_aquisicao?: string;
   responsavel?: number;
@@ -24,21 +29,21 @@ const ItemAddModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [numeroTombo, setNumeroTombo] = useState("");
-  const [espacos, setEspacos] = useState<Espaco[]>([]);
-  const [espaco, setEspaco] = useState("");
+  const [salas, setSalas] = useState<Sala[]>([]);
+  const [salaSelecionada, setSalaSelecionada] = useState<number | "">("");
   const [status, setStatus] = useState("");
   const [dataAquisicao, setDataAquisicao] = useState("");
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchSalas() {
       try {
-        const data = await getEspacos();
-        setEspacos(data);
-      } catch (error) {
-        console.error("Erro ao carregar espaços:", error);
+        const response = await api.get("/api/salas/");
+        setSalas(response.data);
+      } catch (err) {
+        console.error("Erro ao carregar salas:", err);
       }
     }
-    fetchData();
+    fetchSalas();
   }, []);
 
   if (!open) return null;
@@ -46,23 +51,26 @@ const ItemAddModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!salaSelecionada) return;
+
     const dadosItem: ItemFormValues = {
       nome,
       descricao,
       numero_tombo: numeroTombo,
-      localizacao: espaco,
+      sala_id: Number(salaSelecionada),
       status,
       data_aquisicao: dataAquisicao || undefined,
       responsavel: user?.id,
     };
-    
+
     onSubmit?.(dadosItem);
     onClose();
 
+    // Resetar campos
     setNome("");
     setDescricao("");
     setNumeroTombo("");
-    setEspaco("");
+    setSalaSelecionada("");
     setStatus("");
     setDataAquisicao("");
   };
@@ -71,16 +79,12 @@ const ItemAddModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white w-full max-w-lg p-6 rounded-xl shadow-xl relative">
 
-        {/* Título */}
         <h2 className="text-2xl font-bold text-[#2E3A59] mb-4">
           Adicionar Item Patrimonial
         </h2>
 
-        {/* Conteúdo */}
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4"
-        >
+        <form onSubmit={handleSubmit} className="space-y-4">
+
           {/* Nome */}
           <div>
             <label className="block font-medium text-sm mb-1">Nome *</label>
@@ -108,9 +112,7 @@ const ItemAddModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
 
           {/* Número do Tombo */}
           <div>
-            <label className="block font-medium text-sm mb-1">
-              Número do Tombo *
-            </label>
+            <label className="block font-medium text-sm mb-1">Número do Tombo *</label>
             <input
               type="text"
               value={numeroTombo}
@@ -121,20 +123,19 @@ const ItemAddModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
             />
           </div>
 
-          {/* Localização */}
+          {/* Sala */}
           <div>
-            <label className="block font-medium text-sm mb-1">Localização *</label>
+            <label className="block font-medium text-sm mb-1">Sala *</label>
             <select
-              value={espaco}
-              onChange={(e) => setEspaco(e.target.value)}
+              value={salaSelecionada}
+              onChange={(e) => setSalaSelecionada(Number(e.target.value))}
               required
               className="w-full border rounded-lg p-2"
             >
-              <option value="">Selecione...</option>
-
-              {espacos.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.nome}
+              <option value="">Selecione a sala...</option>
+              {salas.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome} - {s.bloco.nome} - {s.bloco.predio.nome}
                 </option>
               ))}
             </select>
@@ -158,9 +159,7 @@ const ItemAddModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
 
           {/* Data de Aquisição */}
           <div>
-            <label className="block font-medium text-sm mb-1">
-              Data de Aquisição
-            </label>
+            <label className="block font-medium text-sm mb-1">Data de Aquisição</label>
             <input
               type="date"
               value={dataAquisicao}
@@ -169,7 +168,7 @@ const ItemAddModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
             />
           </div>
 
-          {/* ações */}
+          {/* Ações */}
           <div className="flex justify-end gap-3 pt-4">
             <button
               type="button"
@@ -188,7 +187,6 @@ const ItemAddModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
           </div>
 
         </form>
-
       </div>
     </div>
   );

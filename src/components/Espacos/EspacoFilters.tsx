@@ -1,111 +1,143 @@
-import React, { useMemo } from "react";
-import { Search } from "lucide-react";
-import MultiFilterDropdown from "../Utils/MultiFilterDropdown";
-import SearchBar from "../Utils/SearchBar";
+import React, { useState, useEffect } from "react";
+import type { Predio, Bloco, Sala } from "../../services/espaco";
+import api from "../../services/api";
 
-interface Espaco {
-  id: number;
-  nome: string;
-  tipo: string;
-  bloco: number;        // ID
-  bloco_nome: string;   // nome do bloco
-  predio_nome: string;  // nome do prédio
-}
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  localizacao: {
+    predio?: Predio;
+    bloco?: Bloco;
+    sala?: Sala;
+    tipo?: string;
+  } | null;
+  onUpdated?: (updated: any) => void;
+};
 
-interface EspacoFiltersProps {
-  data: Espaco[];
-  searchTerm: string;
-  setSearchTerm: (value: string) => void;
-  filters: {
-    tipos: string[];
-    blocos: string[];
-  };
-  setFilters: React.Dispatch<
-    React.SetStateAction<{
-      tipos: string[];
-      blocos: string[];
-    }>
-  >;
-}
+const LocalizacaoEditModal: React.FC<Props> = ({ open, onClose, localizacao, onUpdated }) => {
+  const [predios, setPredios] = useState<Predio[]>([]);
+  const [predioSelecionado, setPredioSelecionado] = useState<number | "">("");
+  const [blocoSelecionado, setBlocoSelecionado] = useState<number | "">("");
+  const [salaSelecionada, setSalaSelecionada] = useState<number | "">("");
+  const [tipo, setTipo] = useState("");
+  const [loading, setLoading] = useState(false);
 
-const EspacoFilters: React.FC<EspacoFiltersProps> = ({
-  data,
-  searchTerm,
-  setSearchTerm,
-  filters,
-  setFilters,
-}) => {
+  useEffect(() => {
+    if (!open) return;
+    async function fetchPredios() {
+      try {
+        const response = await api.get("/api/predios/");
+        setPredios(response.data);
+      } catch (err) {
+        console.error("Erro ao carregar prédios:", err);
+      }
+    }
+    fetchPredios();
+  }, [open]);
 
-  // LISTA DE TIPOS ÚNICOS
-  const tipos = useMemo(
-    () => Array.from(new Set(data.map((i) => i.tipo).filter(Boolean))),
-    [data]
-  );
+  useEffect(() => {
+    if (open && localizacao) {
+      setPredioSelecionado(localizacao.predio?.id ?? "");
+      setBlocoSelecionado(localizacao.bloco?.id ?? "");
+      setSalaSelecionada(localizacao.sala?.id ?? "");
+      setTipo(localizacao.tipo ?? "");
+    }
+  }, [open, localizacao]);
 
-  // LISTA DE BLOCOS (USANDO BLOCO_NOME)
-  const blocos = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          data
-            .map((i) => i.bloco_nome)
-            .filter((v) => v && v.trim() !== "")
-        )
-      ),
-    [data]
-  );
+  if (!open) return null;
 
-  const updateFilter = (key: keyof typeof filters, values: string[]) => {
-    setFilters((prev) => ({ ...prev, [key]: values }));
-  };
+  const blocosDisponiveis = predios.find(p => p.id === predioSelecionado)?.blocos || [];
+  const salasDisponiveis = blocosDisponiveis.find(b => b.id === blocoSelecionado)?.salas || [];
 
-  const clearFilters = () => {
-    setFilters({ tipos: [], blocos: [] });
-    setSearchTerm("");
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    setLoading(true);
+
+    const updated = {
+      predio_id: predioSelecionado || null,
+      bloco_id: blocoSelecionado || null,
+      sala_id: salaSelecionada || null,
+      tipo: tipo || null,
+    };
+
+    onUpdated?.(updated);
+    setLoading(false);
+    onClose();
   };
 
   return (
-    <div className="w-full flex flex-nowrap items-center gap-4 mb-6 relative">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white w-full max-w-lg p-6 rounded-xl shadow-xl relative">
+        <h2 className="text-2xl font-bold mb-4">Editar Localização</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label>Prédio *</label>
+            <select
+              required
+              value={predioSelecionado}
+              onChange={(e) => { setPredioSelecionado(Number(e.target.value)); setBlocoSelecionado(""); setSalaSelecionada(""); }}
+              className="w-full border rounded-lg p-2"
+            >
+              <option value="">Selecione...</option>
+              {predios.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+            </select>
+          </div>
 
-      {/* Ícone */}
-      <Search
-        size={18}
-        className="absolute left-3 text-gray-500 pointer-events-none"
-      />
+          <div>
+            <label>Bloco *</label>
+            <select
+              required
+              value={blocoSelecionado}
+              onChange={(e) => { setBlocoSelecionado(Number(e.target.value)); setSalaSelecionada(""); }}
+              disabled={!predioSelecionado}
+              className="w-full border rounded-lg p-2"
+            >
+              <option value="">Selecione...</option>
+              {blocosDisponiveis.map(b => <option key={b.id} value={b.id}>{b.nome}</option>)}
+            </select>
+          </div>
 
-      {/* Barra de pesquisa */}
-      <SearchBar
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        className="flex-grow min-w-[200px] pl-9 pr-3 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-        placeholder="Buscar por nome..."
-      />
+          <div>
+            <label>Sala *</label>
+            <select
+              required
+              value={salaSelecionada}
+              onChange={(e) => setSalaSelecionada(Number(e.target.value))}
+              disabled={!blocoSelecionado}
+              className="w-full border rounded-lg p-2"
+            >
+              <option value="">Selecione...</option>
+              {salasDisponiveis.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+          </div>
 
-      {/* Filtro — Tipo */}
-      <MultiFilterDropdown
-        label="Tipo"
-        options={tipos.map((t) => ({ value: t, label: t }))}
-        selected={filters.tipos}
-        onChange={(v) => updateFilter("tipos", v)}
-      />
+          <div>
+            <label>Tipo</label>
+            <select
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value)}
+              className="w-full border rounded-lg p-2"
+            >
+              <option value="">Selecione...</option>
+              <option value="Sala de Aula">Sala de Aula</option>
+              <option value="Laboratório">Laboratório</option>
+              <option value="Auditório">Auditório</option>
+              <option value="Sala Professor / Projeto">Sala Professor / Projeto</option>
+              <option value="Ginásio">Ginásio</option>
+              <option value="Sala Administrativa">Administrativa</option>
+              <option value="Área Externa">Área Externa</option>
+            </select>
+          </div>
 
-      {/* Filtro — Bloco */}
-      <MultiFilterDropdown
-        label="Bloco"
-        options={blocos.map((b) => ({ value: b, label: b }))}
-        selected={filters.blocos}
-        onChange={(v) => updateFilter("blocos", v)}
-      />
-
-      {/* Botão limpar */}
-      <button
-        onClick={clearFilters}
-        className="cursor-pointer bg-gray-200 select-none border border-gray-300 rounded-lg px-4 py-2 text-gray-700 hover:border-gray-400 min-w-[150px] hover:bg-gray-300"
-      >
-        Limpar Filtros
-      </button>
+          <div className="flex justify-end gap-3 pt-4">
+            <button type="button" onClick={onClose} disabled={loading} className="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400">Cancelar</button>
+            <button type="submit" disabled={loading} className={`px-4 py-2 rounded-lg text-white ${loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}>{loading ? "Salvando..." : "Salvar Alterações"}</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
 
-export default EspacoFilters;
+export default LocalizacaoEditModal;

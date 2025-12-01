@@ -1,74 +1,105 @@
 import React, { useState, useEffect } from "react";
-import { updateEspaco } from "../../services/espaco";
-import type { Bloco } from "../../services/bloco";
-import { getBlocos } from "../../services/bloco";
-
+import type { Predio, Bloco, Sala } from "../../services/espaco";
+import api from "../../services/api";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  espaco: any;
-  onUpdated?: () => void;
+  localizacao: {
+    predio?: Predio;
+    bloco?: Bloco;
+    sala?: Sala;
+  } | null;
+  onUpdated?: (updated: any) => void;
 };
 
-const EspacoEditModal: React.FC<Props> = ({ open, onClose, espaco, onUpdated }) => {
-  const [nome, setNome] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [bloco, setBloco] = useState<number | "">("");
-  const [blocos, setBlocos] = useState<Bloco[]>([]);
+const LocalizacaoEditModal: React.FC<Props> = ({ open, onClose, localizacao, onUpdated }) => {
+  const [predios, setPredios] = useState<Predio[]>([]);
+  const [predioSelecionado, setPredioSelecionado] = useState<number | "">("");
+  const [blocoSelecionado, setBlocoSelecionado] = useState<number | "">("");
+  const [salaSelecionada, setSalaSelecionada] = useState<number | "">("");
+  const [loading, setLoading] = useState(false);
 
-  // Carrega blocos quando o modal abre
+  // Carrega prédios + blocos + salas
   useEffect(() => {
-    if (open) {
-      getBlocos().then(setBlocos).catch(console.error);
+    if (!open) return;
+
+    async function fetchPredios() {
+      try {
+        const response = await api.get("/api/predios/");
+        setPredios(response.data);
+      } catch (err) {
+        console.error("Erro ao carregar prédios:", err);
+      }
     }
+
+    fetchPredios();
   }, [open]);
 
-  // Preenche dados do espaço ao abrir o modal
+  // Preenche seleção inicial
   useEffect(() => {
-    if (open && espaco) {
-      setNome(espaco.nome ?? "");
-      setTipo(espaco.tipo ?? "");
-      setBloco(espaco.bloco ?? "");
+    if (open && localizacao) {
+      setPredioSelecionado(localizacao.predio?.id ?? "");
+      setBlocoSelecionado(localizacao.bloco?.id ?? "");
+      setSalaSelecionada(localizacao.sala?.id ?? "");
     }
-  }, [open, espaco]);
+  }, [open, localizacao]);
 
   if (!open) return null;
 
+  const blocosDisponiveis: Bloco[] =
+    predios.find((p) => p.id === predioSelecionado)?.blocos || [];
+
+  const salasDisponiveis: Sala[] =
+    blocosDisponiveis.find((b) => b.id === blocoSelecionado)?.salas || [];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    setLoading(true);
 
     try {
-      const payload = {
-        nome,
-        tipo,
-        bloco, // agora ID numérico
+      // Aqui você pode chamar sua função de update real, se existir
+      const updated = {
+        predio_id: predioSelecionado || null,
+        bloco_id: blocoSelecionado || null,
+        sala_id: salaSelecionada || null,
       };
-
-      await updateEspaco(espaco.id, payload);
-      onUpdated?.();
-
+      onUpdated?.(updated);
       onClose();
     } catch (err) {
-      console.error("Erro ao atualizar espaço:", err);
+      console.error("Erro ao atualizar localização:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white w-full max-w-lg p-6 rounded-xl shadow-xl relative">
-        <h2 className="text-2xl font-bold mb-4">Editar Espaço</h2>
+        <h2 className="text-2xl font-bold mb-4">Editar Localização</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Nome */}
+          {/* Prédio */}
           <div>
-            <label>Nome *</label>
-            <input
+            <label>Prédio *</label>
+            <select
               required
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
+              value={predioSelecionado}
+              onChange={(e) => {
+                setPredioSelecionado(Number(e.target.value));
+                setBlocoSelecionado("");
+                setSalaSelecionada("");
+              }}
               className="w-full border rounded-lg p-2"
-            />
+            >
+              <option value="">Selecione...</option>
+              {predios.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Bloco */}
@@ -76,36 +107,39 @@ const EspacoEditModal: React.FC<Props> = ({ open, onClose, espaco, onUpdated }) 
             <label>Bloco *</label>
             <select
               required
+              value={blocoSelecionado}
+              onChange={(e) => {
+                setBlocoSelecionado(Number(e.target.value));
+                setSalaSelecionada("");
+              }}
+              disabled={!predioSelecionado}
               className="w-full border rounded-lg p-2"
-              value={bloco}
-              onChange={(e) => setBloco(Number(e.target.value))}
             >
               <option value="">Selecione...</option>
-              {blocos.map((b) => (
+              {blocosDisponiveis.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.nome} — {b.predio_nome}
+                  {b.nome}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Tipo */}
+          {/* Sala */}
           <div>
-            <label>Tipo *</label>
+            <label>Sala *</label>
             <select
               required
+              value={salaSelecionada}
+              onChange={(e) => setSalaSelecionada(Number(e.target.value))}
+              disabled={!blocoSelecionado}
               className="w-full border rounded-lg p-2"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
             >
               <option value="">Selecione...</option>
-              <option value="Sala de Aula">Sala de Aula</option>
-              <option value="Laboratório">Laboratório</option>
-              <option value="Auditório">Auditório</option>
-              <option value="Sala Professor / Projeto">Sala Professor / Projeto</option>
-              <option value="Ginásio">Ginásio</option>
-              <option value="Sala Administrativa">Administrativa</option>
-              <option value="Área Externa">Área Externa</option>
+              {salasDisponiveis.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -113,16 +147,21 @@ const EspacoEditModal: React.FC<Props> = ({ open, onClose, espaco, onUpdated }) 
             <button
               type="button"
               onClick={onClose}
+              disabled={loading}
               className="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400"
             >
               Cancelar
             </button>
-
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={loading}
+              className={`px-4 py-2 rounded-lg text-white ${
+                loading
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
             >
-              Salvar Alterações
+              {loading ? "Salvando..." : "Salvar Alterações"}
             </button>
           </div>
         </form>
@@ -131,4 +170,4 @@ const EspacoEditModal: React.FC<Props> = ({ open, onClose, espaco, onUpdated }) 
   );
 };
 
-export default EspacoEditModal;
+export default LocalizacaoEditModal;

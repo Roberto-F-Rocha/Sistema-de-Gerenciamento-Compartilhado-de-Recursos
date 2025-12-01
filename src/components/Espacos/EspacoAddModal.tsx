@@ -1,106 +1,113 @@
 import React, { useState, useEffect } from "react";
-import { createEspaco } from "../../services/espaco";
-import type { Bloco } from "../../services/bloco";
-import { getBlocos } from "../../services/bloco";
-
-
+import { getPredios } from "../../services/espaco";
+import type { Predio, Bloco, Sala } from "../../services/espaco";
 type Props = {
   open: boolean;
   onClose: () => void;
-  onCreated?: () => void;
+  onSelected?: (predioId: number, blocoId: number, salaId: number) => void;
 };
 
-const EspacoAddModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
-  const [nome, setNome] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [bloco, setBloco] = useState<number | "">("");
-  const [blocos, setBlocos] = useState<Bloco[]>([]);
+const LocalizacaoSelectModal: React.FC<Props> = ({ open, onClose, onSelected }) => {
+  const [predios, setPredios] = useState<Predio[]>([]);
+  const [predioSelecionado, setPredioSelecionado] = useState<number | "">("");
+  const [blocoSelecionado, setBlocoSelecionado] = useState<number | "">("");
+  const [salaSelecionada, setSalaSelecionada] = useState<number | "">("");
 
-  // Carregar blocos ao abrir o modal
   useEffect(() => {
     if (open) {
-      getBlocos().then(setBlocos).catch(console.error);
+      getPredios().then(setPredios).catch(console.error);
     }
   }, [open]);
 
   if (!open) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const payload = {
-        nome,
-        tipo,
-        bloco, // agora é ID numérico
-      };
-
-      await createEspaco(payload);
-      onCreated?.();
-
-      setNome("");
-      setTipo("");
-      setBloco("");
-
+    if (predioSelecionado && blocoSelecionado && salaSelecionada) {
+      onSelected?.(
+        Number(predioSelecionado),
+        Number(blocoSelecionado),
+        Number(salaSelecionada)
+      );
+      setPredioSelecionado("");
+      setBlocoSelecionado("");
+      setSalaSelecionada("");
       onClose();
-    } catch (err) {
-      console.error("Erro ao criar espaço:", err);
     }
   };
+
+  const blocosDisponiveis: Bloco[] =
+    predios.find((p) => p.id === predioSelecionado)?.blocos || [];
+
+  const salasDisponiveis: Sala[] =
+    blocosDisponiveis.find((b) => b.id === blocoSelecionado)?.salas || [];
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white w-full max-w-lg p-6 rounded-xl shadow-xl relative">
-        <h2 className="text-2xl font-bold mb-4">Novo Espaço Físico</h2>
+        <h2 className="text-2xl font-bold mb-4">Selecionar Localização</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Nome */}
+          {/* Prédio */}
           <div>
-            <label>Nome *</label>
-            <input
-              required
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="w-full border rounded-lg p-2"
-            />
-          </div>
-
-          {/* Bloco como SELECT */}
-          <div>
-            <label>Bloco *</label>
+            <label>Prédio *</label>
             <select
               required
               className="w-full border rounded-lg p-2"
-              value={bloco}
-              onChange={(e) => setBloco(Number(e.target.value))}
+              value={predioSelecionado}
+              onChange={(e) => {
+                setPredioSelecionado(Number(e.target.value));
+                setBlocoSelecionado("");
+                setSalaSelecionada("");
+              }}
             >
               <option value="">Selecione...</option>
-              {blocos.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.nome} — {b.predio_nome}
+              {predios.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Tipo */}
+          {/* Bloco */}
           <div>
-            <label>Tipo *</label>
+            <label>Bloco *</label>
             <select
               required
               className="w-full border rounded-lg p-2"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
+              value={blocoSelecionado}
+              onChange={(e) => {
+                setBlocoSelecionado(Number(e.target.value));
+                setSalaSelecionada("");
+              }}
+              disabled={!predioSelecionado}
             >
               <option value="">Selecione...</option>
-              <option value="Sala de Aula">Sala de Aula</option>
-              <option value="Laboratório">Laboratório</option>
-              <option value="Auditório">Auditório</option>
-              <option value="Sala Professor / Projeto">
-                Sala Professor / Projeto
-              </option>
-              <option value="Ginásio">Ginásio</option>
-              <option value="Sala Administrativa">Administrativa</option>
-              <option value="Área Externa">Área Externa</option>
+              {blocosDisponiveis.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sala */}
+          <div>
+            <label>Sala *</label>
+            <select
+              required
+              className="w-full border rounded-lg p-2"
+              value={salaSelecionada}
+              onChange={(e) => setSalaSelecionada(Number(e.target.value))}
+              disabled={!blocoSelecionado}
+            >
+              <option value="">Selecione...</option>
+              {salasDisponiveis.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -109,7 +116,7 @@ const EspacoAddModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
               Cancelar
             </button>
             <button type="submit" className="btn-primary">
-              Salvar
+              Confirmar
             </button>
           </div>
         </form>
@@ -118,4 +125,4 @@ const EspacoAddModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
   );
 };
 
-export default EspacoAddModal;
+export default LocalizacaoSelectModal;
